@@ -1,12 +1,12 @@
 # Feature Engineering of a bank's customers with MySQL
 
-This project builds a **single, denormalized dataset** of a bank's customers from a relational banking database using **MySQL**. The goal is to obtain behavioral and financial activity indicators (features) from multiple tables including data on customers, their accounts, and their transactions. The resulting output can be used for advanced data analytics and machine learning tasks.
+This project builds a **single, denormalized dataset** of a bank's customers from a relational banking database using **MySQL**. The goal is to obtain behavioral and financial activity indicators (features) from multiple tables including data on customers, their accounts, and their transactions. The resulting output can be used for advanced data analytics and machine learning tasks. The full project is implemented in the [`customer_feature_engineering.sql`](https://github.com/lgucrl/sql-bank-customer-feature-engineering/blob/main/customer_feature_engineering.sql) file.
 
 ---
 
 ## Database
 
-The project uses a MySQL database (**`bank`**), contained in the [`banking_db.sql`](https://github.com/lgucrl/sql-bank-customer-analysis/blob/main/banking_db.sql) file, which is composed of five tables:
+The project uses a MySQL database (**`bank`**), contained in the [`banking_db.sql`](https://github.com/lgucrl/sql-bank-customer-feature-engineering/blob/main/banking_db.sql) file, which is composed of five tables:
 
 - **`customer`**: customer personal information  
   - Columns: `customer_id`, `customer_name`, `customer_surname`, `customer_birth_date`
