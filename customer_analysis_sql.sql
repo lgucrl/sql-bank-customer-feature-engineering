@@ -6,14 +6,15 @@ This project aims to create a denormalized table containing a series of indicato
 tables available in a bank database, which represent the behaviors and financial activities of customers, 
 using MySQL.
 
-The database ("banca") consists of the following tables and columns:
-    •	cliente: contains personal information about customers (columns: id_cliente, nome, cognome, data_nascita).
-    •	conto: contains information about accounts held by customers (columns: id_conto, id_cliente, id_tipo_conto).
-    •	tipo_conto: describes the different types of accounts available (columns: id_tipo_conto, desc_tipo_conto).
-    •	tipo_transazione: contains the transaction types that can occur on accounts (columns: id_tipo_transazione, 
-        desc_tipo_trans, segno).
-    •	transazioni: contains details of transactions made by customers on various accounts (columns: data, 
-        id_tipo_trans, importo, id_conto).
+The database ("bank") consists of the following tables and columns:
+    •	customer: contains personal information about customers (columns: customer_id, customer_name, customer_surname, 
+        customer_birth_date).
+    •	account: contains information about accounts held by customers (columns: account_id, customer_id, account_type_id).
+    •	account_type: describes the different types of accounts available (columns: account_type_id, account_type_desc).
+    •	transaction_type: contains the transaction types that can occur on accounts (columns: transaction_type_id, 
+        transaction_type_desc, transaction_sign).
+    •	transactions: contains details of transactions made by customers on various accounts (columns: transaction_date, 
+        transaction_type_id, amount, account_id).
 
 Specifically, the indicators will be obtained for each individual customer and will include:
     A.	Basic indicators:
@@ -38,18 +39,18 @@ of CASE and multiple JOIN statements.
  */
 
 
-/* First, the database "banca" is set to be used by default. */
+/* First, the "bank" database is set to be used by default. */
 
-USE banca;
+USE bank;
 
 
 /* Before proceeding with the creation of indicators, all tables contained in the databes are visualized. */
 
-SELECT * FROM cliente;
-SELECT * FROM conto;
-SELECT * FROM tipo_conto;
-SELECT * FROM tipo_transazione;
-SELECT * FROM transazioni;
+SELECT * FROM customer;
+SELECT * FROM account;
+SELECT * FROM account_type;
+SELECT * FROM transaction_type;
+SELECT * FROM transactions;
 
 
 /* 
@@ -57,24 +58,24 @@ Considering the structure of the tables, in order to apply the CASE function to 
 based on specific conditions, it is necessary to apply a series of LEFT JOIN functions to combine data contained in
 the single tables. 
 
-In particular, the table "cliente" is first joined with the table "conto" by using the column "id_cliente".
+In particular, the "customer" table is first joined with the "account" table by using the "customer_id" column.
 
-Then, the column "id_conto" is used to join the table "transazioni", which is required to obtained all indicators 
+Then, the "account_id" column is used to join the "transactions" table, which is required to obtained all indicators 
 on transactions. 
 
-The table "tipo_conto" is not strictly necessary, as the table "conto" contains the information on account type 
-("id_tipo_conto"), but it will be joined to use the column "desc_tipo_conto" as condition, making the code more
+The "account_type" table is not strictly necessary, as the "account" table contains the information on account type 
+("account_type_id"), but it will be joined to use the "account_type_desc" column as condition, making the code more
 easily readable.
 
-The table "tipo_transazione" will not be joined, as the condition to distinguish outgoing and incoming transactions 
-can be obtained from the column "importo" in the table "transazioni" by considering negative and positive values. The
-column "segno" in the table "tipo_transazione" could also be used as condition, but it is not assumed to improve the
-code in terms of readability.
+The "transaction_type" table will not be joined, as the condition to distinguish outgoing and incoming transactions 
+can be obtained from the "amount" column in the "transactions" table by considering negative and positive values. The
+"transaction_sign" column in the "transaction_type" table could also be used as condition, but it is not assumed to improve 
+the code in terms of readability.
 
 All indicators on accounts and transactions are calculated using the aggregation functions COUNT or SUM. The indicator 
 on the customer age is calculated using the TIMESTAMPDIFF() function. To make sure that all indicators are calculated 
-for each individual customer, the GROUP BY statement is used to group the results of aggregate functions by the column 
-"id_cliente", referring to the customer IDs, and the column "età", referring to the calculated ages associated with each 
+for each individual customer, the GROUP BY statement is used to group the results of aggregate functions by the "customer_id"
+column, referring to the customer IDs, and the "age" column, referring to the calculated ages associated with each 
 customer.
 
 The results of the following SELECT query contain all indicators described above: 
@@ -82,49 +83,49 @@ The results of the following SELECT query contain all indicators described above
 
 
 SELECT
-cliente.id_cliente,
+customer.customer_id,
 -- 1. Customer age
-TIMESTAMPDIFF(year, cliente.data_nascita, CURRENT_DATE()) as età,
--- 2. Number of outgoing transactions on all accounts (1: 54)
-count(CASE WHEN transazioni.importo < 0 THEN transazioni.importo ELSE null END) n_transazioni_uscita,
--- 3. Number of incoming transactions on all accounts (1: 7)
-count(CASE WHEN transazioni.importo > 0 THEN transazioni.importo ELSE null END) n_transazioni_entrata,
+TIMESTAMPDIFF(year, customer.customer_birth_date, CURRENT_DATE()) as age,
+-- 2. Number of outgoing transactions on all accounts
+count(CASE WHEN transactions.amount < 0 THEN transactions.amount ELSE null END) n_outgoing_transactions,
+-- 3. Number of incoming transactions on all accounts
+count(CASE WHEN transactions.amount > 0 THEN transactions.amount ELSE null END) n_incoming_transactions,
 -- 4. Total outgoing transacted amount on all accounts
-sum(CASE WHEN transazioni.importo < 0 THEN transazioni.importo ELSE null END) tot_transato_uscita,
+sum(CASE WHEN transactions.amount < 0 THEN transactions.amount ELSE null END) tot_outgoing_transacted,
 -- 5. Total incoming transacted amount on all accounts
-sum(CASE WHEN transazioni.importo > 0 THEN transazioni.importo ELSE null END) tot_transato_entrata,
+sum(CASE WHEN transactions.amount > 0 THEN transactions.amount ELSE null END) tot_incoming_transacted,
 -- 6. Total number of accounts held
-count(DISTINCT conto.id_conto) n_conti_tot,
+count(DISTINCT account.account_id) tot_n_accounts,
 -- 7. Number of accounts held by type 
-count(DISTINCT CASE WHEN tipo_conto.desc_tipo_conto = 'Conto Base' THEN conto.id_conto ELSE null END) n_conti_base,
-count(DISTINCT CASE WHEN tipo_conto.desc_tipo_conto = 'Conto Business' THEN conto.id_conto ELSE null END) n_conti_business,
-count(DISTINCT CASE WHEN tipo_conto.desc_tipo_conto = 'Conto Privati' THEN conto.id_conto ELSE null END) n_conti_privati,
-count(DISTINCT CASE WHEN tipo_conto.desc_tipo_conto = 'Conto Famiglie' THEN conto.id_conto ELSE null END) n_conti_famiglie,
+count(DISTINCT CASE WHEN account_type.account_type_desc = 'Basic account' THEN account.account_id ELSE null END) n_basic_accounts,
+count(DISTINCT CASE WHEN account_type.account_type_desc = 'Business account' THEN account.account_id ELSE null END) n_business_accounts,
+count(DISTINCT CASE WHEN account_type.account_type_desc = 'Private account' THEN account.account_id ELSE null END) n_private_accounts,
+count(DISTINCT CASE WHEN account_type.account_type_desc = 'Family account' THEN account.account_id ELSE null END) n_family_accounts,
 -- 8. Number of outgoing transactions by account type
-count(CASE WHEN (transazioni.importo < 0 AND tipo_conto.desc_tipo_conto = 'Conto Base') THEN transazioni.importo ELSE null END) n_transaz_uscita_base,
-count(CASE WHEN (transazioni.importo < 0 AND tipo_conto.desc_tipo_conto = 'Conto Business') THEN transazioni.importo ELSE null END) n_transaz_uscita_business,
-count(CASE WHEN (transazioni.importo < 0 AND tipo_conto.desc_tipo_conto = 'Conto Privati') THEN transazioni.importo ELSE null END) n_transaz_uscita_privati,
-count(CASE WHEN (transazioni.importo < 0 AND tipo_conto.desc_tipo_conto = 'Conto Famiglie') THEN transazioni.importo ELSE null END) n_transaz_uscita_famiglie,
+count(CASE WHEN (transactions.amount < 0 AND account_type.account_type_desc = 'Basic account') THEN transactions.amount ELSE null END) n_outgoing_transactions_basic,
+count(CASE WHEN (transactions.amount < 0 AND account_type.account_type_desc = 'Business account') THEN transactions.amount ELSE null END) n_outgoing_transactions_business,
+count(CASE WHEN (transactions.amount < 0 AND account_type.account_type_desc = 'Private account') THEN transactions.amount ELSE null END) n_outgoing_transactions_private,
+count(CASE WHEN (transactions.amount < 0 AND account_type.account_type_desc = 'Family account') THEN transactions.amount ELSE null END) n_outgoing_transactions_family,
 -- 9. Number of incoming transactions by account type 
-count(CASE WHEN (transazioni.importo > 0 AND tipo_conto.desc_tipo_conto = 'Conto Base') THEN transazioni.importo ELSE null END) n_transaz_entrata_base,
-count(CASE WHEN (transazioni.importo > 0 AND tipo_conto.desc_tipo_conto = 'Conto Business') THEN transazioni.importo ELSE null END) n_transaz_entrata_business,
-count(CASE WHEN (transazioni.importo > 0 AND tipo_conto.desc_tipo_conto = 'Conto Privati') THEN transazioni.importo ELSE null END) n_transaz_entrata_privati,
-count(CASE WHEN (transazioni.importo > 0 AND tipo_conto.desc_tipo_conto = 'Conto Famiglie') THEN transazioni.importo ELSE null END) n_transaz_entrata_famiglie,
+count(CASE WHEN (transactions.amount > 0 AND account_type.account_type_desc = 'Basic account') THEN transactions.amount ELSE null END) n_incoming_transactions_basic,
+count(CASE WHEN (transactions.amount > 0 AND account_type.account_type_desc = 'Business account') THEN transactions.amount ELSE null END) n_incoming_transactions_business,
+count(CASE WHEN (transactions.amount > 0 AND account_type.account_type_desc = 'Private account') THEN transactions.amount ELSE null END) n_incoming_transactions_private,
+count(CASE WHEN (transactions.amount > 0 AND account_type.account_type_desc = 'Family account') THEN transactions.amount ELSE null END) n_incoming_transactions_family,
 -- 10. Outgoing transacted amount by account type
-sum(CASE WHEN (transazioni.importo < 0 AND tipo_conto.desc_tipo_conto = 'Conto Base') THEN transazioni.importo ELSE null END) transato_uscita_base,
-sum(CASE WHEN (transazioni.importo < 0 AND tipo_conto.desc_tipo_conto = 'Conto Business') THEN transazioni.importo ELSE null END) transato_uscita_business,
-sum(CASE WHEN (transazioni.importo < 0 AND tipo_conto.desc_tipo_conto = 'Conto Privati') THEN transazioni.importo ELSE null END) transato_uscita_privati,
-sum(CASE WHEN (transazioni.importo < 0 AND tipo_conto.desc_tipo_conto = 'Conto Famiglie') THEN transazioni.importo ELSE null END) transato_uscita_famiglie,
+sum(CASE WHEN (transactions.amount < 0 AND account_type.account_type_desc = 'Basic account') THEN transactions.amount ELSE null END) outgoing_transacted_basic,
+sum(CASE WHEN (transactions.amount < 0 AND account_type.account_type_desc = 'Business account') THEN transactions.amount ELSE null END) outgoing_transacted_business,
+sum(CASE WHEN (transactions.amount < 0 AND account_type.account_type_desc = 'Private account') THEN transactions.amount ELSE null END) outgoing_transacted_private,
+sum(CASE WHEN (transactions.amount < 0 AND account_type.account_type_desc = 'Family account') THEN transactions.amount ELSE null END) outgoing_transacted_family,
 -- 11. Incoming transacted amount by account type
-sum(CASE WHEN (transazioni.importo > 0 AND tipo_conto.desc_tipo_conto = 'Conto Base') THEN transazioni.importo ELSE null END) transato_entrata_base,
-sum(CASE WHEN (transazioni.importo > 0 AND tipo_conto.desc_tipo_conto = 'Conto Business') THEN transazioni.importo ELSE null END) transato_entrata_business,
-sum(CASE WHEN (transazioni.importo > 0 AND tipo_conto.desc_tipo_conto = 'Conto Privati') THEN transazioni.importo ELSE null END) transato_entrata_privati,
-sum(CASE WHEN (transazioni.importo > 0 AND tipo_conto.desc_tipo_conto = 'Conto Famiglie') THEN transazioni.importo ELSE null END) transato_entrata_famiglie
+sum(CASE WHEN (transactions.amount > 0 AND account_type.account_type_desc = 'Basic account') THEN transactions.amount ELSE null END) incoming_transacted_basic,
+sum(CASE WHEN (transactions.amount > 0 AND account_type.account_type_desc = 'Business account') THEN transactions.amount ELSE null END) incoming_transacted_business,
+sum(CASE WHEN (transactions.amount > 0 AND account_type.account_type_desc = 'Private account') THEN transactions.amount ELSE null END) incoming_transacted_private,
+sum(CASE WHEN (transactions.amount > 0 AND account_type.account_type_desc = 'Family account') THEN transactions.amount ELSE null END) incoming_transacted_family
 
-FROM cliente
-LEFT JOIN conto ON cliente.id_cliente = conto.id_cliente
-LEFT JOIN transazioni ON conto.id_conto = transazioni.id_conto
-LEFT JOIN tipo_conto ON conto.id_tipo_conto = tipo_conto.id_tipo_conto
+FROM customer
+LEFT JOIN account ON customer.customer_id = account.customer_id
+LEFT JOIN transactions ON account.account_id = transactions.account_id
+LEFT JOIN account_type ON account.account_type_id = account_type.account_type_id
 GROUP BY 1,2;
 
 
